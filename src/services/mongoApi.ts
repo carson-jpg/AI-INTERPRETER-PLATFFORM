@@ -15,7 +15,7 @@ import {
   INotification
 } from '../lib/mongo';
 
-const API_URL = 'http://localhost:3001/api';
+const API_URL = 'https://ai-interpreter-platfform.onrender.com/api';
 
 const handleResponse = async (response: Response) => {
   if (!response.ok) {
