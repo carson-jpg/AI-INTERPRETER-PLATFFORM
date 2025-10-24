@@ -95,17 +95,30 @@ router.put('/profile/:userId', async (req, res) => {
       return res.status(400).json({ error: `Invalid update fields: ${invalidKeys.join(', ')}` });
     }
 
+    // Validate data types and constraints
+    if (updates.skill_level && !['Beginner', 'Intermediate', 'Advanced'].includes(updates.skill_level)) {
+      return res.status(400).json({ error: 'Invalid skill level. Must be Beginner, Intermediate, or Advanced' });
+    }
+
+    if (updates.preferred_language && typeof updates.preferred_language !== 'string') {
+      return res.status(400).json({ error: 'Preferred language must be a string' });
+    }
+
     const db = getDB();
-    await db.collection('student_profiles').updateOne(
+    const result = await db.collection('student_profiles').updateOne(
       { user_id: new ObjectId(userId) },
       { $set: { ...updates, updated_at: new Date() } }
     );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
 
     const profile = await db.collection('student_profiles').findOne({ user_id: new ObjectId(userId) });
     if (profile) {
       res.json({ ...profile, id: profile._id.toString() });
     } else {
-      res.json(null);
+      res.status(500).json({ error: 'Failed to retrieve updated profile' });
     }
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -117,6 +130,11 @@ router.get('/progress/:userId?', async (req, res) => {
   try {
     const db = getDB();
     if (userId) {
+      // Validate userId format
+      if (!ObjectId.isValid(userId)) {
+        return res.status(400).json({ error: 'Invalid user ID format' });
+      }
+
       const progress = await db.collection('student_progress').aggregate([
         {
           $match: { user_id: new ObjectId(userId) }
@@ -133,27 +151,61 @@ router.get('/progress/:userId?', async (req, res) => {
           $unwind: { path: '$profile', preserveNullAndEmptyArrays: true }
         },
         {
+          $lookup: {
+            from: 'practice_sessions',
+            localField: 'user_id',
+            foreignField: 'user_id',
+            as: 'recent_sessions',
+            pipeline: [
+              { $sort: { created_at: -1 } },
+              { $limit: 10 },
+              { $project: { accuracy: 1, duration: 1, created_at: 1 } }
+            ]
+          }
+        },
+        {
           $project: {
             id: { $toString: '$_id' },
             user_id: 1,
-            signs_learned: 1,
-            total_practice_time: 1,
-            accuracy_rate: 1,
-            total_sessions: 1,
-            weekly_progress: 1,
-            monthly_goal: 1,
-            streak_days: 1,
+            signs_learned: { $ifNull: ['$signs_learned', 0] },
+            total_practice_time: { $ifNull: ['$total_practice_time', 0] },
+            accuracy_rate: { $ifNull: ['$accuracy_rate', 0.0] },
+            total_sessions: { $ifNull: ['$total_sessions', 0] },
+            weekly_progress: { $ifNull: ['$weekly_progress', 0] },
+            monthly_goal: { $ifNull: ['$monthly_goal', 100] },
+            streak_days: { $ifNull: ['$streak_days', 0] },
             last_session: 1,
             last_active: 1,
             created_at: 1,
             updated_at: 1,
-            skill_level: '$profile.skill_level',
-            preferred_language: '$profile.preferred_language'
+            skill_level: { $ifNull: ['$profile.skill_level', ''] },
+            preferred_language: { $ifNull: ['$profile.preferred_language', ''] },
+            recent_sessions: 1,
+            // Calculate average accuracy from recent sessions
+            recent_avg_accuracy: {
+              $cond: {
+                if: { $gt: [{ $size: '$recent_sessions' }, 0] },
+                then: { $avg: '$recent_sessions.accuracy' },
+                else: 0
+              }
+            }
           }
         }
       ]).toArray();
+
       if (progress.length > 0) {
-        res.json(progress[0]);
+        // Ensure numeric fields are properly typed
+        const result = progress[0];
+        result.signs_learned = Number(result.signs_learned);
+        result.total_practice_time = Number(result.total_practice_time);
+        result.accuracy_rate = Number(result.accuracy_rate);
+        result.total_sessions = Number(result.total_sessions);
+        result.weekly_progress = Number(result.weekly_progress);
+        result.monthly_goal = Number(result.monthly_goal);
+        result.streak_days = Number(result.streak_days);
+        result.recent_avg_accuracy = Number(result.recent_avg_accuracy);
+
+        res.json(result);
       } else {
         res.json(null);
       }
@@ -185,28 +237,41 @@ router.get('/progress/:userId?', async (req, res) => {
           $project: {
             id: { $toString: '$_id' },
             user_id: 1,
-            signs_learned: 1,
-            total_practice_time: 1,
-            accuracy_rate: 1,
-            total_sessions: 1,
-            weekly_progress: 1,
-            monthly_goal: 1,
-            streak_days: 1,
+            signs_learned: { $ifNull: ['$signs_learned', 0] },
+            total_practice_time: { $ifNull: ['$total_practice_time', 0] },
+            accuracy_rate: { $ifNull: ['$accuracy_rate', 0.0] },
+            total_sessions: { $ifNull: ['$total_sessions', 0] },
+            weekly_progress: { $ifNull: ['$weekly_progress', 0] },
+            monthly_goal: { $ifNull: ['$monthly_goal', 100] },
+            streak_days: { $ifNull: ['$streak_days', 0] },
             last_session: 1,
             last_active: 1,
             created_at: 1,
             updated_at: 1,
             email: '$user.email',
             user_full_name: '$user.full_name',
-            skill_level: '$profile.skill_level',
-            preferred_language: '$profile.preferred_language'
+            skill_level: { $ifNull: ['$profile.skill_level', ''] },
+            preferred_language: { $ifNull: ['$profile.preferred_language', ''] }
           }
         },
         {
           $sort: { last_active: -1 }
         }
       ]).toArray();
-      res.json(allProgress);
+
+      // Ensure all numeric fields are properly typed
+      const results = allProgress.map(progress => ({
+        ...progress,
+        signs_learned: Number(progress.signs_learned),
+        total_practice_time: Number(progress.total_practice_time),
+        accuracy_rate: Number(progress.accuracy_rate),
+        total_sessions: Number(progress.total_sessions),
+        weekly_progress: Number(progress.weekly_progress),
+        monthly_goal: Number(progress.monthly_goal),
+        streak_days: Number(progress.streak_days)
+      }));
+
+      res.json(results);
     }
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -351,5 +416,389 @@ router.post('/admin/create', async (req, res) => {
   }
 });
 
+
+// Practice Session Functions
+router.get('/practice-sessions/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    // Validate userId format
+    if (!ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+
+    const db = getDB();
+    const sessions = await db.collection('practice_sessions')
+      .find({ user_id: new ObjectId(userId) })
+      .sort({ created_at: -1 })
+      .toArray();
+
+    res.json(sessions.map(session => ({ ...session, id: session._id.toString() })));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/practice-sessions', async (req, res) => {
+  const sessionData = req.body;
+  try {
+    // Validate required fields
+    if (!sessionData.user_id || !sessionData.sign_id) {
+      return res.status(400).json({ error: 'user_id and sign_id are required' });
+    }
+
+    // Validate user_id format
+    if (!ObjectId.isValid(sessionData.user_id)) {
+      return res.status(400).json({ error: 'Invalid user_id format' });
+    }
+
+    // Validate numeric fields
+    const validatedData = {
+      user_id: new ObjectId(sessionData.user_id),
+      sign_id: sessionData.sign_id,
+      accuracy: Math.max(0, Math.min(100, Number(sessionData.accuracy) || 0)),
+      duration: Math.max(0, Number(sessionData.duration) || 0),
+      attempts: Math.max(0, Number(sessionData.attempts) || 1),
+      correct_attempts: Math.max(0, Number(sessionData.correct_attempts) || 0),
+      feedback: sessionData.feedback || '',
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+
+    const db = getDB();
+    const result = await db.collection('practice_sessions').insertOne(validatedData);
+
+    // Update student progress with accurate calculations
+    const progressUpdate = {
+      $inc: {
+        total_sessions: 1,
+        total_practice_time: validatedData.duration,
+        signs_learned: validatedData.correct_attempts > 0 ? 1 : 0
+      },
+      $set: {
+        last_session: new Date(),
+        last_active: new Date(),
+        updated_at: new Date()
+      }
+    };
+
+    // Calculate and update accuracy rate based on recent sessions
+    const recentSessions = await db.collection('practice_sessions')
+      .find({ user_id: validatedData.user_id })
+      .sort({ created_at: -1 })
+      .limit(10)
+      .toArray();
+
+    if (recentSessions.length > 0) {
+      const avgAccuracy = recentSessions.reduce((sum, session) => sum + (session.accuracy || 0), 0) / recentSessions.length;
+      progressUpdate.$set.accuracy_rate = Math.round(avgAccuracy * 100) / 100;
+    }
+
+    await db.collection('student_progress').updateOne(
+      { user_id: validatedData.user_id },
+      progressUpdate,
+      { upsert: true }
+    );
+
+    const session = await db.collection('practice_sessions').findOne({ _id: result.insertedId });
+    res.json({ ...session, id: session._id.toString() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/practice-sessions/:sessionId', async (req, res) => {
+  const { sessionId } = req.params;
+  const updates = req.body;
+  try {
+    // Validate sessionId format
+    if (!ObjectId.isValid(sessionId)) {
+      return res.status(400).json({ error: 'Invalid session ID format' });
+    }
+
+    // Validate allowed update fields
+    const allowedKeys = ['accuracy', 'duration', 'attempts', 'correct_attempts', 'feedback'];
+    const keys = Object.keys(updates);
+    const invalidKeys = keys.filter(key => !allowedKeys.includes(key));
+    if (invalidKeys.length > 0) {
+      return res.status(400).json({ error: `Invalid update fields: ${invalidKeys.join(', ')}` });
+    }
+
+    // Validate numeric fields
+    if (updates.accuracy !== undefined) {
+      updates.accuracy = Math.max(0, Math.min(100, Number(updates.accuracy)));
+    }
+    if (updates.duration !== undefined) {
+      updates.duration = Math.max(0, Number(updates.duration));
+    }
+    if (updates.attempts !== undefined) {
+      updates.attempts = Math.max(0, Number(updates.attempts));
+    }
+    if (updates.correct_attempts !== undefined) {
+      updates.correct_attempts = Math.max(0, Number(updates.correct_attempts));
+    }
+
+    const db = getDB();
+    const result = await db.collection('practice_sessions').updateOne(
+      { _id: new ObjectId(sessionId) },
+      { $set: { ...updates, updated_at: new Date() } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Practice session not found' });
+    }
+
+    const session = await db.collection('practice_sessions').findOne({ _id: new ObjectId(sessionId) });
+    res.json({ ...session, id: session._id.toString() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Gesture Attempt Functions
+router.post('/gesture-attempts', async (req, res) => {
+  const attemptData = req.body;
+  try {
+    // Validate required fields
+    if (!attemptData.session_id || !attemptData.sign_attempted || !attemptData.detected_sign) {
+      return res.status(400).json({ error: 'session_id, sign_attempted, and detected_sign are required' });
+    }
+
+    // Validate session_id format
+    if (!ObjectId.isValid(attemptData.session_id)) {
+      return res.status(400).json({ error: 'Invalid session_id format' });
+    }
+
+    const validatedData = {
+      session_id: new ObjectId(attemptData.session_id),
+      sign_attempted: attemptData.sign_attempted,
+      detected_sign: attemptData.detected_sign,
+      confidence: Math.max(0, Math.min(1, Number(attemptData.confidence) || 0)),
+      is_correct: Boolean(attemptData.is_correct),
+      landmarks: attemptData.landmarks || [],
+      feedback: attemptData.feedback || '',
+      created_at: new Date()
+    };
+
+    const db = getDB();
+    const result = await db.collection('gesture_attempts').insertOne(validatedData);
+
+    const attempt = await db.collection('gesture_attempts').findOne({ _id: result.insertedId });
+    res.json({ ...attempt, id: attempt._id.toString() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/gesture-attempts/:sessionId', async (req, res) => {
+  const { sessionId } = req.params;
+  try {
+    // Validate sessionId format
+    if (!ObjectId.isValid(sessionId)) {
+      return res.status(400).json({ error: 'Invalid session ID format' });
+    }
+
+    const db = getDB();
+    const attempts = await db.collection('gesture_attempts')
+      .find({ session_id: new ObjectId(sessionId) })
+      .sort({ created_at: 1 })
+      .toArray();
+
+    res.json(attempts.map(attempt => ({ ...attempt, id: attempt._id.toString() })));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Practice Session Functions
+router.get('/practice-sessions/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    // Validate userId format
+    if (!ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: 'Invalid user ID format' });
+    }
+
+    const db = getDB();
+    const sessions = await db.collection('practice_sessions')
+      .find({ user_id: new ObjectId(userId) })
+      .sort({ created_at: -1 })
+      .toArray();
+
+    res.json(sessions.map(session => ({ ...session, id: session._id.toString() })));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/practice-sessions', async (req, res) => {
+  const sessionData = req.body;
+  try {
+    // Validate required fields
+    if (!sessionData.user_id || !sessionData.sign_id) {
+      return res.status(400).json({ error: 'user_id and sign_id are required' });
+    }
+
+    // Validate user_id format
+    if (!ObjectId.isValid(sessionData.user_id)) {
+      return res.status(400).json({ error: 'Invalid user_id format' });
+    }
+
+    // Validate numeric fields
+    const validatedData = {
+      user_id: new ObjectId(sessionData.user_id),
+      sign_id: sessionData.sign_id,
+      accuracy: Math.max(0, Math.min(100, Number(sessionData.accuracy) || 0)),
+      duration: Math.max(0, Number(sessionData.duration) || 0),
+      attempts: Math.max(0, Number(sessionData.attempts) || 1),
+      correct_attempts: Math.max(0, Number(sessionData.correct_attempts) || 0),
+      feedback: sessionData.feedback || '',
+      created_at: new Date(),
+      updated_at: new Date()
+    };
+
+    const db = getDB();
+    const result = await db.collection('practice_sessions').insertOne(validatedData);
+
+    // Update student progress with accurate calculations
+    const progressUpdate = {
+      $inc: {
+        total_sessions: 1,
+        total_practice_time: validatedData.duration,
+        signs_learned: validatedData.correct_attempts > 0 ? 1 : 0
+      },
+      $set: {
+        last_session: new Date(),
+        last_active: new Date(),
+        updated_at: new Date()
+      }
+    };
+
+    // Calculate and update accuracy rate based on recent sessions
+    const recentSessions = await db.collection('practice_sessions')
+      .find({ user_id: validatedData.user_id })
+      .sort({ created_at: -1 })
+      .limit(10)
+      .toArray();
+
+    if (recentSessions.length > 0) {
+      const avgAccuracy = recentSessions.reduce((sum, session) => sum + (session.accuracy || 0), 0) / recentSessions.length;
+      progressUpdate.$set.accuracy_rate = Math.round(avgAccuracy * 100) / 100;
+    }
+
+    await db.collection('student_progress').updateOne(
+      { user_id: validatedData.user_id },
+      progressUpdate,
+      { upsert: true }
+    );
+
+    const session = await db.collection('practice_sessions').findOne({ _id: result.insertedId });
+    res.json({ ...session, id: session._id.toString() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.put('/practice-sessions/:sessionId', async (req, res) => {
+  const { sessionId } = req.params;
+  const updates = req.body;
+  try {
+    // Validate sessionId format
+    if (!ObjectId.isValid(sessionId)) {
+      return res.status(400).json({ error: 'Invalid session ID format' });
+    }
+
+    // Validate allowed update fields
+    const allowedKeys = ['accuracy', 'duration', 'attempts', 'correct_attempts', 'feedback'];
+    const keys = Object.keys(updates);
+    const invalidKeys = keys.filter(key => !allowedKeys.includes(key));
+    if (invalidKeys.length > 0) {
+      return res.status(400).json({ error: `Invalid update fields: ${invalidKeys.join(', ')}` });
+    }
+
+    // Validate numeric fields
+    if (updates.accuracy !== undefined) {
+      updates.accuracy = Math.max(0, Math.min(100, Number(updates.accuracy)));
+    }
+    if (updates.duration !== undefined) {
+      updates.duration = Math.max(0, Number(updates.duration));
+    }
+    if (updates.attempts !== undefined) {
+      updates.attempts = Math.max(0, Number(updates.attempts));
+    }
+    if (updates.correct_attempts !== undefined) {
+      updates.correct_attempts = Math.max(0, Number(updates.correct_attempts));
+    }
+
+    const db = getDB();
+    const result = await db.collection('practice_sessions').updateOne(
+      { _id: new ObjectId(sessionId) },
+      { $set: { ...updates, updated_at: new Date() } }
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Practice session not found' });
+    }
+
+    const session = await db.collection('practice_sessions').findOne({ _id: new ObjectId(sessionId) });
+    res.json({ ...session, id: session._id.toString() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Gesture Attempt Functions
+router.post('/gesture-attempts', async (req, res) => {
+  const attemptData = req.body;
+  try {
+    // Validate required fields
+    if (!attemptData.session_id || !attemptData.sign_attempted || !attemptData.detected_sign) {
+      return res.status(400).json({ error: 'session_id, sign_attempted, and detected_sign are required' });
+    }
+
+    // Validate session_id format
+    if (!ObjectId.isValid(attemptData.session_id)) {
+      return res.status(400).json({ error: 'Invalid session_id format' });
+    }
+
+    const validatedData = {
+      session_id: new ObjectId(attemptData.session_id),
+      sign_attempted: attemptData.sign_attempted,
+      detected_sign: attemptData.detected_sign,
+      confidence: Math.max(0, Math.min(1, Number(attemptData.confidence) || 0)),
+      is_correct: Boolean(attemptData.is_correct),
+      landmarks: attemptData.landmarks || [],
+      feedback: attemptData.feedback || '',
+      created_at: new Date()
+    };
+
+    const db = getDB();
+    const result = await db.collection('gesture_attempts').insertOne(validatedData);
+
+    const attempt = await db.collection('gesture_attempts').findOne({ _id: result.insertedId });
+    res.json({ ...attempt, id: attempt._id.toString() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/gesture-attempts/:sessionId', async (req, res) => {
+  const { sessionId } = req.params;
+  try {
+    // Validate sessionId format
+    if (!ObjectId.isValid(sessionId)) {
+      return res.status(400).json({ error: 'Invalid session ID format' });
+    }
+
+    const db = getDB();
+    const attempts = await db.collection('gesture_attempts')
+      .find({ session_id: new ObjectId(sessionId) })
+      .sort({ created_at: 1 })
+      .toArray();
+
+    res.json(attempts.map(attempt => ({ ...attempt, id: attempt._id.toString() })));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 module.exports = router;

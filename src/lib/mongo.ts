@@ -60,7 +60,7 @@ export interface ILesson {
   id: string;
   title: string;
   description?: string;
-  category: 'basics' | 'alphabet' | 'numbers' | 'phrases' | 'advanced';
+  category: 'basics' | 'alphabet' | 'numbers' | 'phrases' | 'intermediate' | 'advanced';
   language: 'ASL' | 'KSL' | 'BSL';
   difficulty_level: 'beginner' | 'intermediate' | 'advanced';
   material_ids: string[];
@@ -77,7 +77,7 @@ export interface ISign {
   id: string;
   name: string;
   description?: string;
-  category: 'basics' | 'alphabet' | 'numbers' | 'phrases' | 'advanced';
+  category: 'basics' | 'alphabet' | 'numbers' | 'phrases' | 'intermediate' | 'advanced';
   language: 'ASL' | 'KSL' | 'BSL';
   difficulty_level: 'beginner' | 'intermediate' | 'advanced';
   video_url?: string;

@@ -7,9 +7,10 @@ interface CameraFeedProps {
   isRecording: boolean;
   onToggleRecording: (recording: boolean) => void;
   onInterpretation: (text: string) => void;
+  onSentenceAnalysis?: (analysis: string) => void;
 }
 
-const CameraFeed = ({ isRecording, onToggleRecording, onInterpretation }: CameraFeedProps) => {
+const CameraFeed = ({ isRecording, onToggleRecording, onInterpretation, onSentenceAnalysis }: CameraFeedProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -56,9 +57,25 @@ const CameraFeed = ({ isRecording, onToggleRecording, onInterpretation }: Camera
     setIsInitializingAI(true);
 
     const handleDetectionResult = (result: DetectionResult) => {
-      console.log('Detected sign:', result.sign, 'confidence:', result.confidence);
-      if (result.confidence > 0.6) {
-        onInterpretation(result.sign);
+      console.log('Detected sign:', result.sign, 'confidence:', result.confidence, 'gesture type:', result.gestureType, 'hand shape:', result.handShape);
+
+      // Handle different types of results
+      if (result.gestureType === 'sentence') {
+        // Sentence analysis - show as special feedback
+        console.log('Sentence analysis:', result.sign);
+        if (onSentenceAnalysis) {
+          onSentenceAnalysis(result.sign);
+        }
+      } else if (result.gestureType === 'validated') {
+        // AI-validated result - higher confidence
+        if (result.confidence > 0.8) {
+          onInterpretation(result.sign);
+        }
+      } else {
+        // Regular sign detection
+        if (result.confidence > 0.7) { // Increased threshold for better accuracy
+          onInterpretation(result.sign);
+        }
       }
     };
 
@@ -382,8 +399,8 @@ const CameraFeed = ({ isRecording, onToggleRecording, onInterpretation }: Camera
       </div>
 
       <div className="mt-4 text-sm text-gray-600 text-center">
-        {hasCamera 
-          ? "Position your hands within the dashed frame for optimal detection. AI-powered recognition active!"
+        {hasCamera
+          ? "Position your hands within the dashed frame for optimal detection. AI-powered recognition with OpenAI sentence analysis active!"
           : "Please allow camera access to begin sign language detection"
         }
       </div>

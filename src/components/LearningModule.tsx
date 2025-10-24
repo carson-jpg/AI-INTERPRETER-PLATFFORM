@@ -44,11 +44,11 @@ const LearningModule = () => {
     originalLesson: lesson, // Keep original lesson data
   })) || [];
 
-  // Calculate progress stats
+  // Calculate progress stats with improved accuracy
   const signsLearned = progressData ? (progressData as any).signs_learned : 0;
   const completedLessons = progressData ? (progressData as any).total_sessions : 0;
-  const inProgressLessons = lessons.length - completedLessons;
-  const overallProgress = progressData ? Math.round((progressData as any).accuracy_rate * 100) : 0;
+  const inProgressLessons = Math.max(0, lessons.length - completedLessons);
+  const overallProgress = progressData ? Math.round(((progressData as any).recent_avg_accuracy || (progressData as any).accuracy_rate) * 100) : 0;
 
   // Quick practice logic
   const getRandomSign = () => {
@@ -85,10 +85,20 @@ const LearningModule = () => {
 
   const quickPracticeOptions = currentSign ? generateOptions(currentSign) : [];
 
+  const handleStartLesson = (lesson: ILesson) => {
+    navigate(`/lesson/${lesson.id}`);
+  };
+
   const difficultyColors = {
     Beginner: "bg-green-100 text-green-800",
     Intermediate: "bg-yellow-100 text-yellow-800",
     Advanced: "bg-red-100 text-red-800"
+  };
+
+  const levelDescriptions = {
+    Beginner: "Perfect for those new to sign language. Learn basic signs, alphabet, and simple communication.",
+    Intermediate: "Build conversational skills with complex vocabulary, time expressions, and sentence structure.",
+    Advanced: "Master professional-level signing with classifiers, interpretation skills, and specialized terminology."
   };
 
   return (
@@ -153,6 +163,23 @@ const LearningModule = () => {
               style={{ width: `${overallProgress}%` }}
             ></div>
           </div>
+        </div>
+      </div>
+
+      {/* Skill Level Overview */}
+      <div className="bg-gradient-to-r from-blue-50 via-purple-50 to-green-50 rounded-2xl p-6 border border-blue-200 mb-8">
+        <h3 className="text-xl font-semibold text-gray-900 mb-4">Choose Your Learning Level</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {Object.entries(levelDescriptions).map(([level, description]) => (
+            <div key={level} className="bg-white/70 backdrop-blur-sm rounded-lg p-4 border border-gray-200">
+              <div className="flex items-center space-x-2 mb-2">
+                <span className={`px-2 py-1 text-xs font-medium rounded-full ${difficultyColors[level as keyof typeof difficultyColors]}`}>
+                  {level}
+                </span>
+              </div>
+              <p className="text-sm text-gray-600 leading-relaxed">{description}</p>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -267,7 +294,10 @@ const LearningModule = () => {
                 )}
               </div>
 
-              <button className="w-full flex items-center justify-center space-x-2 py-2 px-4 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-lg hover:from-blue-700 hover:to-green-700 transition-all duration-200 group-hover:shadow-md">
+              <button
+                onClick={() => handleStartLesson(lesson.originalLesson)}
+                className="w-full flex items-center justify-center space-x-2 py-2 px-4 bg-gradient-to-r from-blue-600 to-green-600 text-white rounded-lg hover:from-blue-700 hover:to-green-700 transition-all duration-200 group-hover:shadow-md"
+              >
                 <Play className="h-4 w-4" />
                 <span>{lesson.completed ? 'Review' : 'Start Lesson'}</span>
               </button>

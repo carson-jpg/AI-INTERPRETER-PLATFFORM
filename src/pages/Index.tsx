@@ -7,6 +7,7 @@ import InterpretationDisplay from '../components/InterpretationDisplay';
 import LearningModule from '../components/LearningModule';
 import Navigation from '../components/Navigation';
 import AuthModal from '../components/auth/AuthModal';
+import LearningMaterials from '../pages/LearningMaterials';
 import { useAuth } from '../hooks/useAuth';
 import { getSystemStats } from '../services/mongoApi';
 import { textToSpeechService } from '../services/textToSpeech';
@@ -194,6 +195,10 @@ const Index = () => {
 
         {activeMode === 'learn' && (
           <LearningModule />
+        )}
+
+        {activeMode === 'materials' && user && (
+          <LearningMaterials />
         )}
 
         {activeMode === 'settings' && (

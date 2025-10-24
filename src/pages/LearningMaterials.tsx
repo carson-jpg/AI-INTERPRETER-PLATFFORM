@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BookOpen, Play, Download, Search, Filter } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { getLearningMaterials } from '../services/mongoApi';
 import { useToast } from '../hooks/use-toast';
 
@@ -21,6 +22,7 @@ const LearningMaterials = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>('all');
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const categories = ['all', 'basics', 'alphabet', 'numbers', 'phrases', 'advanced'];
   const difficulties = ['all', 'beginner', 'intermediate', 'advanced'];
@@ -95,6 +97,27 @@ const LearningMaterials = () => {
       case 'advanced': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const handleStartLearning = (material: LearningMaterial) => {
+    // Navigate to lesson page with material ID
+    navigate(`/lesson/${material.id}`);
+  };
+
+  const handleDownload = (material: LearningMaterial) => {
+    // For now, show a toast message. In a real app, this would download the material
+    toast({
+      title: "Download Started",
+      description: `Downloading ${material.title}...`,
+    });
+
+    // Simulate download (in a real app, this would trigger actual download)
+    setTimeout(() => {
+      toast({
+        title: "Download Complete",
+        description: `${material.title} has been downloaded successfully.`,
+      });
+    }, 2000);
   };
 
   return (
@@ -190,10 +213,16 @@ const LearningMaterials = () => {
                   )}
 
                   <div className="flex space-x-2">
-                    <button className="flex-1 bg-gradient-to-r from-blue-600 to-green-600 text-white px-4 py-2 rounded-lg hover:from-blue-700 hover:to-green-700 transition-all text-sm font-medium">
+                    <button
+                      onClick={() => handleStartLearning(material)}
+                      className="flex-1 bg-gradient-to-r from-blue-600 to-green-600 text-white px-4 py-2 rounded-lg hover:from-blue-700 hover:to-green-700 transition-all text-sm font-medium"
+                    >
                       Start Learning
                     </button>
-                    <button className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                    <button
+                      onClick={() => handleDownload(material)}
+                      className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
                       <Download className="h-4 w-4 text-gray-600" />
                     </button>
                   </div>
