@@ -103,7 +103,7 @@ const LessonPage = () => {
       await createPracticeSession({
         user_id: user.id,
         lesson_id: lesson.id,
-        sign_ids: [lesson.id], // Use lesson ID as sign ID for now
+        sign_id: lesson.id, // Use lesson ID as sign ID for now
         start_time: practiceStartTime || new Date(),
         end_time: new Date(),
         duration: duration,

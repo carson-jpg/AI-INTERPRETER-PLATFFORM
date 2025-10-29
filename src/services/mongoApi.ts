@@ -12,10 +12,11 @@ import {
   IAdmin,
   ISystemLog,
   IUserSession,
-  INotification
+  INotification,
+  ILessonSchedule
 } from '../lib/mongo';
 
-const API_URL = 'https://ai-interpreter-platfform.onrender.com/api';
+const API_URL = import.meta.env.DEV ? 'http://localhost:3000/api' : 'https://ai-interpreter-platfform.onrender.com/api';
 
 const handleResponse = async (response: Response) => {
   if (!response.ok) {
@@ -91,6 +92,38 @@ export const getSigns = async (filters?: any): Promise<ISign[]> => {
 
 export const getSign = async (signId: string): Promise<ISign> => {
   const response = await fetch(`${API_URL}/signs/${signId}`);
+  return handleResponse(response);
+};
+
+// Community Sign Functions
+export const uploadSign = async (formData: FormData): Promise<ISign> => {
+  const response = await fetch(`${API_URL}/signs/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  return handleResponse(response);
+};
+
+export const getPendingSigns = async (): Promise<ISign[]> => {
+  const response = await fetch(`${API_URL}/signs/pending`);
+  return handleResponse(response);
+};
+
+export const moderateSign = async (signId: string, action: 'approve' | 'reject', reviewNotes: string, adminId: string): Promise<ISign> => {
+  const response = await fetch(`${API_URL}/signs/${signId}/moderate`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      action,
+      review_notes: reviewNotes,
+      admin_id: adminId
+    }),
+  });
+  return handleResponse(response);
+};
+
+export const getUserContributedSigns = async (userId: string): Promise<ISign[]> => {
+  const response = await fetch(`${API_URL}/signs/contributed/${userId}`);
   return handleResponse(response);
 };
 
@@ -185,6 +218,34 @@ export const createNotification = async (notificationData: Omit<INotification, '
   return handleResponse(response);
 };
 
+// System Logs Functions
+export const createSystemLog = async (logData: Omit<ISystemLog, 'id' | 'timestamp'>): Promise<ISystemLog> => {
+  const response = await fetch(`${API_URL}/system-logs`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(logData),
+  });
+  return handleResponse(response);
+};
+
+export const getSystemLogs = async (filters?: {
+  userId?: string;
+  action?: string;
+  resource?: string;
+  level?: string;
+  limit?: number;
+}): Promise<ISystemLog[]> => {
+  const params = new URLSearchParams();
+  if (filters?.userId) params.append('userId', filters.userId);
+  if (filters?.action) params.append('action', filters.action);
+  if (filters?.resource) params.append('resource', filters.resource);
+  if (filters?.level) params.append('level', filters.level);
+  if (filters?.limit) params.append('limit', filters.limit.toString());
+
+  const response = await fetch(`${API_URL}/system-logs?${params}`);
+  return handleResponse(response);
+};
+
 // System Stats Functions
 export const getSystemStats = async (): Promise<{
   recognitionAccuracy: number;
@@ -193,6 +254,38 @@ export const getSystemStats = async (): Promise<{
   totalUsers: number;
 }> => {
   const response = await fetch(`${API_URL}/stats`);
+  return handleResponse(response);
+};
+
+// Lesson Schedule Functions
+export const getLessonSchedules = async (userId?: string): Promise<ILessonSchedule[]> => {
+  const url = userId ? `${API_URL}/lesson-schedules/${userId}` : `${API_URL}/lesson-schedules`;
+  const response = await fetch(url);
+  return handleResponse(response);
+};
+
+export const createLessonSchedule = async (scheduleData: Omit<ILessonSchedule, 'id' | 'created_at' | 'updated_at'>): Promise<ILessonSchedule> => {
+  const response = await fetch(`${API_URL}/lesson-schedules`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(scheduleData),
+  });
+  return handleResponse(response);
+};
+
+export const updateLessonSchedule = async (scheduleId: string, updates: Partial<ILessonSchedule>): Promise<ILessonSchedule> => {
+  const response = await fetch(`${API_URL}/lesson-schedules/${scheduleId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  return handleResponse(response);
+};
+
+export const deleteLessonSchedule = async (scheduleId: string): Promise<void> => {
+  const response = await fetch(`${API_URL}/lesson-schedules/${scheduleId}`, {
+    method: 'DELETE',
+  });
   return handleResponse(response);
 };
 

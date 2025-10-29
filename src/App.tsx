@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 import StudentProfile from "./pages/StudentProfile";
 import LearningMaterials from "./pages/LearningMaterials";
 import LessonPage from "./pages/LessonPage";
+import { CommunitySigns } from "./pages/CommunitySigns";
 import AuthModal from "./components/auth/AuthModal";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,7 @@ const AppRoutes = () => {
       <Route path="/profile" element={<StudentProfile />} />
       <Route path="/materials" element={<LearningMaterials />} />
       <Route path="/lesson/:lessonId" element={<LessonPage />} />
+      <Route path="/community" element={<CommunitySigns />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

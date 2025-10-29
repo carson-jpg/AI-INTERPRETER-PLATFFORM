@@ -88,6 +88,13 @@ export interface ISign {
   related_signs?: string[];
   tags: string[];
   is_active: boolean;
+  // Community contribution fields
+  contributed_by?: string; // User ID of contributor
+  contributor_name?: string; // Name of contributor
+  status?: 'pending' | 'approved' | 'rejected'; // Moderation status
+  review_notes?: string; // Admin review notes
+  reviewed_by?: string; // Admin ID who reviewed
+  reviewed_at?: Date; // When it was reviewed
   created_at?: Date;
   updated_at?: Date;
 }
@@ -96,7 +103,7 @@ export interface IPracticeSession {
   id: string;
   user_id: string;
   lesson_id?: string;
-  sign_ids: string[];
+  sign_id: string;
   start_time: Date;
   end_time?: Date;
   duration?: number;
@@ -200,4 +207,27 @@ export interface INotification {
   read_at?: Date;
   expires_at?: Date;
   created_at?: Date;
+}
+
+export interface ILessonSchedule {
+  id: string;
+  user_id: string;
+  lesson_id: string;
+  scheduled_date: Date;
+  scheduled_time: string; // HH:MM format
+  duration_minutes: number;
+  is_completed: boolean;
+  completed_at?: Date;
+  reminder_sent: boolean;
+  notes?: string;
+  created_by: string; // Admin who created the schedule
+  created_at?: Date;
+  updated_at?: Date;
+  // Populated fields from aggregation
+  lesson_title?: string;
+  lesson_category?: string;
+  lesson_language?: string;
+  user_name?: string;
+  user_email?: string;
+  creator_name?: string;
 }
