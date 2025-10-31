@@ -1,17 +1,12 @@
-# Admin Authentication Implementation
+# Make Header Responsive for Small Screens
 
 ## Tasks
-- [x] Add admin check function to mongoApi.ts
-- [x] Add admin creation endpoint to server/routes/api.js
-- [x] Update AdminDashboard.tsx to use real admin verification
-- [x] Fix Google OAuth redirect_uri_mismatch error
-- [ ] Create an admin user for testing
-- [ ] Test admin dashboard access with proper authentication
+- [x] Update header in src/pages/Index.tsx:
+  - [x] Hide subtitle on screens < sm
+  - [x] Make title text-lg on small, text-xl on sm+
+  - [x] Reduce space-x-3 to space-x-2 on small screens
+  - [x] Adjust sign-in button padding and text size for small screens
 
-## Progress
-- [x] Analyze existing code and create plan
-- [x] Get user approval for plan
-- [x] Implement admin API functions
-- [x] Update AdminDashboard to check admin role from database
-- [x] Fix Google OAuth redirect_uri_mismatch by adding redirect_uri parameter to getToken call
-- [ ] Create admin user and test access
+## Followup steps
+- [x] Test responsiveness on different screen sizes
+- [x] Verify header looks good on mobile

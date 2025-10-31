@@ -103,21 +103,21 @@ const Index = () => {
       <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               <div className="p-2 bg-gradient-to-r from-blue-600 to-green-600 rounded-xl">
                 <MessageSquare className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Meshack Isava</h1>
-                <p className="text-sm text-gray-600">Sign Language Learning Platform</p>
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900">Meshack Isava</h1>
+                <p className="hidden sm:block text-sm text-gray-600">Sign Language Learning Platform</p>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <Navigation activeMode={activeMode} onModeChange={handleModeChange} />
               {!user && (
                 <button
                   onClick={() => setShowAuthModal(true)}
-                  className="bg-gradient-to-r from-blue-600 to-green-600 text-white px-4 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-green-700 transition-all"
+                  className="bg-gradient-to-r from-blue-600 to-green-600 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-sm sm:text-base font-medium hover:from-blue-700 hover:to-green-700 transition-all"
                 >
                   Sign In
                 </button>
