@@ -8,6 +8,14 @@ const path = require('path');
 const fs = require('fs');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
+const cloudinary = require('cloudinary').v2;
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 // Google OAuth client
 const client = new OAuth2Client(
@@ -1097,197 +1105,6 @@ router.get('/gesture-attempts/:sessionId', async (req, res) => {
   }
 });
 
-// Practice Session Functions
-router.get('/practice-sessions/:userId', async (req, res) => {
-  const { userId } = req.params;
-  try {
-    // Validate userId format
-    if (!ObjectId.isValid(userId)) {
-      return res.status(400).json({ error: 'Invalid user ID format' });
-    }
-
-    const db = getDB();
-    const sessions = await db.collection('practice_sessions')
-      .find({ user_id: new ObjectId(userId) })
-      .sort({ created_at: -1 })
-      .toArray();
-
-    res.json(sessions.map(session => ({ ...session, id: session._id.toString() })));
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.post('/practice-sessions', async (req, res) => {
-  const sessionData = req.body;
-  try {
-    // Validate required fields
-    if (!sessionData.user_id || !sessionData.sign_id) {
-      return res.status(400).json({ error: 'user_id and sign_id are required' });
-    }
-
-    // Validate user_id format
-    if (!ObjectId.isValid(sessionData.user_id)) {
-      return res.status(400).json({ error: 'Invalid user_id format' });
-    }
-
-    // Validate numeric fields
-    const validatedData = {
-      user_id: new ObjectId(sessionData.user_id),
-      sign_id: sessionData.sign_id,
-      accuracy: Math.max(0, Math.min(100, Number(sessionData.accuracy) || 0)),
-      duration: Math.max(0, Number(sessionData.duration) || 0),
-      attempts: Math.max(0, Number(sessionData.attempts) || 1),
-      correct_attempts: Math.max(0, Number(sessionData.correct_attempts) || 0),
-      feedback: sessionData.feedback || '',
-      created_at: new Date(),
-      updated_at: new Date()
-    };
-
-    const db = getDB();
-    const result = await db.collection('practice_sessions').insertOne(validatedData);
-
-    // Update student progress with accurate calculations
-    const progressUpdate = {
-      $inc: {
-        total_sessions: 1,
-        total_practice_time: validatedData.duration,
-        signs_learned: validatedData.correct_attempts > 0 ? 1 : 0
-      },
-      $set: {
-        last_session: new Date(),
-        last_active: new Date(),
-        updated_at: new Date()
-      }
-    };
-
-    // Calculate and update accuracy rate based on recent sessions
-    const recentSessions = await db.collection('practice_sessions')
-      .find({ user_id: validatedData.user_id })
-      .sort({ created_at: -1 })
-      .limit(10)
-      .toArray();
-
-    if (recentSessions.length > 0) {
-      const avgAccuracy = recentSessions.reduce((sum, session) => sum + (session.accuracy || 0), 0) / recentSessions.length;
-      progressUpdate.$set.accuracy_rate = Math.round(avgAccuracy * 100) / 100;
-    }
-
-    await db.collection('student_progress').updateOne(
-      { user_id: validatedData.user_id },
-      progressUpdate,
-      { upsert: true }
-    );
-
-    const session = await db.collection('practice_sessions').findOne({ _id: result.insertedId });
-    res.json({ ...session, id: session._id.toString() });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.put('/practice-sessions/:sessionId', async (req, res) => {
-  const { sessionId } = req.params;
-  const updates = req.body;
-  try {
-    // Validate sessionId format
-    if (!ObjectId.isValid(sessionId)) {
-      return res.status(400).json({ error: 'Invalid session ID format' });
-    }
-
-    // Validate allowed update fields
-    const allowedKeys = ['accuracy', 'duration', 'attempts', 'correct_attempts', 'feedback'];
-    const keys = Object.keys(updates);
-    const invalidKeys = keys.filter(key => !allowedKeys.includes(key));
-    if (invalidKeys.length > 0) {
-      return res.status(400).json({ error: `Invalid update fields: ${invalidKeys.join(', ')}` });
-    }
-
-    // Validate numeric fields
-    if (updates.accuracy !== undefined) {
-      updates.accuracy = Math.max(0, Math.min(100, Number(updates.accuracy)));
-    }
-    if (updates.duration !== undefined) {
-      updates.duration = Math.max(0, Number(updates.duration));
-    }
-    if (updates.attempts !== undefined) {
-      updates.attempts = Math.max(0, Number(updates.attempts));
-    }
-    if (updates.correct_attempts !== undefined) {
-      updates.correct_attempts = Math.max(0, Number(updates.correct_attempts));
-    }
-
-    const db = getDB();
-    const result = await db.collection('practice_sessions').updateOne(
-      { _id: new ObjectId(sessionId) },
-      { $set: { ...updates, updated_at: new Date() } }
-    );
-
-    if (result.matchedCount === 0) {
-      return res.status(404).json({ error: 'Practice session not found' });
-    }
-
-    const session = await db.collection('practice_sessions').findOne({ _id: new ObjectId(sessionId) });
-    res.json({ ...session, id: session._id.toString() });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Gesture Attempt Functions
-router.post('/gesture-attempts', async (req, res) => {
-  const attemptData = req.body;
-  try {
-    // Validate required fields
-    if (!attemptData.session_id || !attemptData.sign_attempted || !attemptData.detected_sign) {
-      return res.status(400).json({ error: 'session_id, sign_attempted, and detected_sign are required' });
-    }
-
-    // Validate session_id format
-    if (!ObjectId.isValid(attemptData.session_id)) {
-      return res.status(400).json({ error: 'Invalid session_id format' });
-    }
-
-    const validatedData = {
-      session_id: new ObjectId(attemptData.session_id),
-      sign_attempted: attemptData.sign_attempted,
-      detected_sign: attemptData.detected_sign,
-      confidence: Math.max(0, Math.min(1, Number(attemptData.confidence) || 0)),
-      is_correct: Boolean(attemptData.is_correct),
-      landmarks: attemptData.landmarks || [],
-      feedback: attemptData.feedback || '',
-      created_at: new Date()
-    };
-
-    const db = getDB();
-    const result = await db.collection('gesture_attempts').insertOne(validatedData);
-
-    const attempt = await db.collection('gesture_attempts').findOne({ _id: result.insertedId });
-    res.json({ ...attempt, id: attempt._id.toString() });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.get('/gesture-attempts/:sessionId', async (req, res) => {
-  const { sessionId } = req.params;
-  try {
-    // Validate sessionId format
-    if (!ObjectId.isValid(sessionId)) {
-      return res.status(400).json({ error: 'Invalid session ID format' });
-    }
-
-    const db = getDB();
-    const attempts = await db.collection('gesture_attempts')
-      .find({ session_id: new ObjectId(sessionId) })
-      .sort({ created_at: 1 })
-      .toArray();
-
-    res.json(attempts.map(attempt => ({ ...attempt, id: attempt._id.toString() })));
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // Lesson Schedule Functions
 router.get('/lesson-schedules/:userId?', async (req, res) => {
