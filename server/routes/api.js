@@ -9,6 +9,7 @@ const fs = require('fs');
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
 // Configure Cloudinary
 cloudinary.config({
@@ -28,6 +29,9 @@ const storage = new CloudinaryStorage({
       { width: 1000, height: 1000, crop: 'limit' } // Resize images to max 1000x1000
     ],
     resource_type: 'auto' // Auto-detect if it's image or video
+  },
+  filename: function (req, file, cb) {
+    cb(null, file.originalname);
   }
 });
 
