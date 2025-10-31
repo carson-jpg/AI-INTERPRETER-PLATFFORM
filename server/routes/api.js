@@ -17,24 +17,16 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Google OAuth client
-const client = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET
-);
-
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../../uploads');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+// Configure Cloudinary storage for multer
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'sign-language-uploads',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'mp4', 'mov', 'avi', 'webm'],
+    transformation: [
+      { width: 1000, height: 1000, crop: 'limit' } // Resize images to max 1000x1000
+    ],
+    resource_type: 'auto' // Auto-detect if it's image or video
   }
 });
 
@@ -55,6 +47,13 @@ const upload = multer({
     }
   }
 });
+
+// Google OAuth client
+const client = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  `${process.env.CLIENT_URL || 'http://localhost:5173'}/auth/google/callback`
+);
 
 // Google OAuth Routes
 router.get('/auth/google', (req, res) => {
@@ -568,13 +567,13 @@ router.post('/signs/upload', upload.fields([
       updated_at: new Date()
     };
 
-    // Handle file uploads
+    // Handle file uploads (Cloudinary URLs)
     if (req.files.video && req.files.video[0]) {
-      signData.video_url = `/uploads/${req.files.video[0].filename}`;
+      signData.video_url = req.files.video[0].path; // Cloudinary URL
     }
 
     if (req.files.image && req.files.image[0]) {
-      signData.image_url = `/uploads/${req.files.image[0].filename}`;
+      signData.image_url = req.files.image[0].path; // Cloudinary URL
     }
 
     const result = await db.collection('signs').insertOne(signData);
@@ -782,11 +781,15 @@ router.post('/practice-sessions', async (req, res) => {
     const validatedData = {
       user_id: new ObjectId(sessionData.user_id),
       sign_id: sessionData.sign_id,
-      accuracy: Math.max(0, Math.min(100, Number(sessionData.accuracy) || 0)),
+      lesson_id: sessionData.lesson_id,
+      start_time: sessionData.start_time ? new Date(sessionData.start_time) : new Date(),
+      end_time: sessionData.end_time ? new Date(sessionData.end_time) : new Date(),
       duration: Math.max(0, Number(sessionData.duration) || 0),
-      attempts: Math.max(0, Number(sessionData.attempts) || 1),
+      total_attempts: Math.max(0, Number(sessionData.total_attempts) || 0),
       correct_attempts: Math.max(0, Number(sessionData.correct_attempts) || 0),
-      feedback: sessionData.feedback || '',
+      accuracy_rate: Math.max(0, Math.min(100, Number(sessionData.accuracy_rate) || 0)),
+      feedback_given: sessionData.feedback_given || '',
+      completed: Boolean(sessionData.completed),
       created_at: new Date(),
       updated_at: new Date()
     };
@@ -816,7 +819,7 @@ router.post('/practice-sessions', async (req, res) => {
       .toArray();
 
     if (recentSessions.length > 0) {
-      const avgAccuracy = recentSessions.reduce((sum, session) => sum + (session.accuracy || 0), 0) / recentSessions.length;
+      const avgAccuracy = recentSessions.reduce((sum, session) => sum + (session.accuracy_rate || 0), 0) / recentSessions.length;
       progressUpdate.$set.accuracy_rate = Math.round(avgAccuracy * 100) / 100;
     }
 
@@ -843,7 +846,7 @@ router.put('/practice-sessions/:sessionId', async (req, res) => {
     }
 
     // Validate allowed update fields
-    const allowedKeys = ['accuracy', 'duration', 'attempts', 'correct_attempts', 'feedback'];
+    const allowedKeys = ['accuracy_rate', 'duration', 'total_attempts', 'correct_attempts', 'feedback_given', 'completed', 'end_time'];
     const keys = Object.keys(updates);
     const invalidKeys = keys.filter(key => !allowedKeys.includes(key));
     if (invalidKeys.length > 0) {
@@ -851,17 +854,20 @@ router.put('/practice-sessions/:sessionId', async (req, res) => {
     }
 
     // Validate numeric fields
-    if (updates.accuracy !== undefined) {
-      updates.accuracy = Math.max(0, Math.min(100, Number(updates.accuracy)));
+    if (updates.accuracy_rate !== undefined) {
+      updates.accuracy_rate = Math.max(0, Math.min(100, Number(updates.accuracy_rate)));
     }
     if (updates.duration !== undefined) {
       updates.duration = Math.max(0, Number(updates.duration));
     }
-    if (updates.attempts !== undefined) {
-      updates.attempts = Math.max(0, Number(updates.attempts));
+    if (updates.total_attempts !== undefined) {
+      updates.total_attempts = Math.max(0, Number(updates.total_attempts));
     }
     if (updates.correct_attempts !== undefined) {
       updates.correct_attempts = Math.max(0, Number(updates.correct_attempts));
+    }
+    if (updates.end_time !== undefined) {
+      updates.end_time = new Date(updates.end_time);
     }
 
     const db = getDB();
@@ -1066,12 +1072,15 @@ router.post('/gesture-attempts', async (req, res) => {
 
     const validatedData = {
       session_id: new ObjectId(attemptData.session_id),
-      sign_attempted: attemptData.sign_attempted,
+      user_id: attemptData.user_id ? new ObjectId(attemptData.user_id) : null,
+      sign_id: attemptData.sign_id,
+      attempt_number: Number(attemptData.attempt_number) || 1,
       detected_sign: attemptData.detected_sign,
-      confidence: Math.max(0, Math.min(1, Number(attemptData.confidence) || 0)),
+      confidence_score: Math.max(0, Math.min(1, Number(attemptData.confidence_score) || 0)),
+      landmark_data: attemptData.landmark_data || [],
       is_correct: Boolean(attemptData.is_correct),
-      landmarks: attemptData.landmarks || [],
       feedback: attemptData.feedback || '',
+      timestamp: attemptData.timestamp ? new Date(attemptData.timestamp) : new Date(),
       created_at: new Date()
     };
 
@@ -1096,7 +1105,7 @@ router.get('/gesture-attempts/:sessionId', async (req, res) => {
     const db = getDB();
     const attempts = await db.collection('gesture_attempts')
       .find({ session_id: new ObjectId(sessionId) })
-      .sort({ created_at: 1 })
+      .sort({ timestamp: 1 })
       .toArray();
 
     res.json(attempts.map(attempt => ({ ...attempt, id: attempt._id.toString() })));

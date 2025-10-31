@@ -101,6 +101,10 @@ export const CommunitySigns: React.FC = () => {
     toast.success('Sign uploaded successfully! It will be reviewed before being published.');
   };
 
+  const handleSignClick = (sign: ISign) => {
+    setSelectedSign(sign);
+  };
+
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -266,7 +270,8 @@ export const CommunitySigns: React.FC = () => {
                       <img
                         src={sign.image_url}
                         alt={sign.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover cursor-pointer"
+                        onClick={() => handleSignClick(sign)}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -281,7 +286,17 @@ export const CommunitySigns: React.FC = () => {
                       <Badge variant="outline">{sign.language}</Badge>
                       <Badge variant="outline">{sign.category}</Badge>
                     </div>
-                    <span>{sign.difficulty_level}</span>
+                    <div className="flex items-center gap-2">
+                      <span>{sign.difficulty_level}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleSignClick(sign)}
+                        className="p-1 h-6 w-6"
+                      >
+                        <Eye className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Tags */}
@@ -349,7 +364,8 @@ export const CommunitySigns: React.FC = () => {
                         <img
                           src={sign.image_url}
                           alt={sign.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover cursor-pointer"
+                          onClick={() => handleSignClick(sign)}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -398,51 +414,99 @@ export const CommunitySigns: React.FC = () => {
       {/* Sign Detail Modal */}
       {selectedSign && (
         <Dialog open={!!selectedSign} onOpenChange={() => setSelectedSign(null)}>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>{selectedSign.name}</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                {selectedSign.name}
+                {getStatusBadge(selectedSign)}
+              </DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
-              {selectedSign.video_url && (
-                <video
-                  src={selectedSign.video_url}
-                  controls
-                  className="w-full rounded-lg"
-                />
-              )}
-              {selectedSign.image_url && (
-                <img
-                  src={selectedSign.image_url}
-                  alt={selectedSign.name}
-                  className="w-full rounded-lg"
-                />
-              )}
-
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <strong>Language:</strong> {selectedSign.language}
-                </div>
-                <div>
-                  <strong>Category:</strong> {selectedSign.category}
-                </div>
-                <div>
-                  <strong>Difficulty:</strong> {selectedSign.difficulty_level}
-                </div>
-                <div>
-                  <strong>Description:</strong> {selectedSign.description || 'No description'}
-                </div>
+            <div className="space-y-6">
+              {/* Media Display */}
+              <div className="relative">
+                {selectedSign.video_url ? (
+                  <video
+                    src={selectedSign.video_url}
+                    controls
+                    className="w-full rounded-lg max-h-96 object-contain"
+                    poster={selectedSign.image_url}
+                  />
+                ) : selectedSign.image_url ? (
+                  <img
+                    src={selectedSign.image_url}
+                    alt={selectedSign.name}
+                    className="w-full rounded-lg max-h-96 object-contain"
+                  />
+                ) : (
+                  <div className="w-full h-48 bg-gray-100 rounded-lg flex items-center justify-center">
+                    <Eye className="h-12 w-12 text-gray-400" />
+                  </div>
+                )}
               </div>
 
-              {selectedSign.tags && selectedSign.tags.length > 0 && (
-                <div>
-                  <strong>Tags:</strong>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {selectedSign.tags.map(tag => (
-                      <Badge key={tag} variant="secondary">{tag}</Badge>
-                    ))}
+              {/* Sign Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-2">Sign Information</h4>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Language:</span>
+                        <Badge variant="outline">{selectedSign.language}</Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Category:</span>
+                        <Badge variant="outline">{selectedSign.category}</Badge>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Difficulty:</span>
+                        <Badge variant="outline">{selectedSign.difficulty_level}</Badge>
+                      </div>
+                    </div>
                   </div>
+
+                  {selectedSign.description && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">Description</h4>
+                      <p className="text-gray-700 text-sm leading-relaxed">{selectedSign.description}</p>
+                    </div>
+                  )}
                 </div>
-              )}
+
+                <div className="space-y-4">
+                  {selectedSign.tags && selectedSign.tags.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">Tags</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedSign.tags.map(tag => (
+                          <Badge key={tag} variant="secondary">{tag}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedSign.contributed_by && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-2">Contribution Info</h4>
+                      <div className="space-y-2 text-sm text-gray-600">
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          <span>Contributed by {selectedSign.contributor_name}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4" />
+                          <span>Submitted {formatDate(selectedSign.created_at!)}</span>
+                        </div>
+                        {selectedSign.review_notes && (
+                          <div className="mt-2 p-2 bg-gray-50 rounded text-xs">
+                            <strong>Review Notes:</strong> {selectedSign.review_notes}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
