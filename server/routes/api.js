@@ -12,8 +12,7 @@ const jwt = require('jsonwebtoken');
 // Google OAuth client
 const client = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  `${process.env.CLIENT_URL || 'http://localhost:5173'}/auth/google/callback`
+  process.env.GOOGLE_CLIENT_SECRET
 );
 
 // Configure multer for file uploads
@@ -51,10 +50,12 @@ const upload = multer({
 
 // Google OAuth Routes
 router.get('/auth/google', (req, res) => {
+  const redirectUri = `${process.env.SERVER_URL || 'http://localhost:3000'}/api/auth/google/callback`;
   const url = client.generateAuthUrl({
     access_type: 'offline',
     scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'],
-    prompt: 'consent'
+    prompt: 'consent',
+    redirect_uri: redirectUri
   });
   res.redirect(url);
 });
