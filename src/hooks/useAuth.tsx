@@ -72,7 +72,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const signInWithGoogle = () => {
-    window.location.href = `${import.meta.env.DEV ? 'http://localhost:3000' : 'https://ai-interpreter-platfform.onrender.com'}/api/auth/google`;
+    const baseUrl = import.meta.env.DEV ? 'http://localhost:3000' : 'https://ai-interpreter-platfform.onrender.com';
+    window.location.href = `${baseUrl}/api/auth/google`;
   };
 
   const signIn = async (email: string, password: string) => {

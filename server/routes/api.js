@@ -13,7 +13,7 @@ const jwt = require('jsonwebtoken');
 const client = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  `${process.env.CLIENT_URL}/auth/google/callback`
+  `${process.env.CLIENT_URL || 'http://localhost:5173'}/auth/google/callback`
 );
 
 // Configure multer for file uploads
@@ -129,14 +129,15 @@ router.get('/auth/google/callback', async (req, res) => {
     );
 
     // Redirect to frontend with token
-    res.redirect(`${process.env.CLIENT_URL}?token=${token}&user=${encodeURIComponent(JSON.stringify({
+    const redirectUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}?token=${token}&user=${encodeURIComponent(JSON.stringify({
       ...user,
       id: user._id.toString()
-    }))}`);
+    }))}`;
+    res.redirect(redirectUrl);
 
   } catch (error) {
     console.error('Google OAuth error:', error);
-    res.redirect(`${process.env.CLIENT_URL}?error=auth_failed`);
+    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}?error=auth_failed`);
   }
 });
 

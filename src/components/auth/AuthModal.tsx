@@ -210,7 +210,10 @@ const AuthModal = ({ isOpen, onClose }: AuthModalProps) => {
 
           <div className="mt-6">
             <button
-              onClick={() => window.location.href = `${import.meta.env.DEV ? 'http://localhost:3000' : 'https://ai-interpreter-platfform.onrender.com'}/api/auth/google`}
+              onClick={() => {
+                const baseUrl = import.meta.env.DEV ? 'http://localhost:3000' : 'https://ai-interpreter-platfform.onrender.com';
+                window.location.href = `${baseUrl}/api/auth/google`;
+              }}
               className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-xl text-gray-700 bg-white hover:bg-gray-50 transition-all duration-300 hover:scale-105 hover:shadow-lg"
             >
               <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
