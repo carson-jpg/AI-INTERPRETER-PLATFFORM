@@ -64,7 +64,11 @@ router.get('/auth/google/callback', async (req, res) => {
   const { code } = req.query;
 
   try {
-    const { tokens } = await client.getToken(code);
+    const redirectUri = `${process.env.SERVER_URL || 'http://localhost:3000'}/api/auth/google/callback`;
+    const { tokens } = await client.getToken({
+      code,
+      redirect_uri: redirectUri
+    });
     client.setCredentials(tokens);
 
     const ticket = await client.verifyIdToken({
