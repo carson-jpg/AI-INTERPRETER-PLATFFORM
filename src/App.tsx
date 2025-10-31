@@ -23,6 +23,34 @@ const AppRoutes = () => {
   const location = useLocation();
 
   useEffect(() => {
+    const handleAuthCallback = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const token = urlParams.get('token');
+      const userParam = urlParams.get('user');
+      const error = urlParams.get('error');
+
+      if (error) {
+        console.error('Auth error:', error);
+        // Remove error from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
+      }
+
+      if (token && userParam) {
+        try {
+          const userData = JSON.parse(decodeURIComponent(userParam));
+          localStorage.setItem('user', JSON.stringify(userData));
+          // Remove token and user from URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          window.location.reload();
+        } catch (error) {
+          console.error('Error parsing auth callback:', error);
+        }
+      }
+    };
+
+    handleAuthCallback();
+
     const checkAdminAndRedirect = async () => {
       if (user && location.pathname === "/") {
         try {

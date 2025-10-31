@@ -6,6 +6,15 @@ const { ObjectId } = require('mongodb');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const { OAuth2Client } = require('google-auth-library');
+const jwt = require('jsonwebtoken');
+
+// Google OAuth client
+const client = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  `${process.env.CLIENT_URL}/auth/google/callback`
+);
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -37,6 +46,97 @@ const upload = multer({
     } else {
       cb(new Error('Invalid file type. Only images and videos are allowed.'));
     }
+  }
+});
+
+// Google OAuth Routes
+router.get('/auth/google', (req, res) => {
+  const url = client.generateAuthUrl({
+    access_type: 'offline',
+    scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'],
+    prompt: 'consent'
+  });
+  res.redirect(url);
+});
+
+router.get('/auth/google/callback', async (req, res) => {
+  const { code } = req.query;
+
+  try {
+    const { tokens } = await client.getToken(code);
+    client.setCredentials(tokens);
+
+    const ticket = await client.verifyIdToken({
+      idToken: tokens.id_token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+    const { sub: googleId, email, name, picture } = payload;
+
+    const db = getDB();
+
+    // Check if user exists
+    let user = await db.collection('users').findOne({ google_id: googleId });
+
+    if (!user) {
+      // Create new user
+      const userResult = await db.collection('users').insertOne({
+        google_id: googleId,
+        email,
+        full_name: name,
+        avatar_url: picture,
+        role: 'student',
+        auth_provider: 'google',
+        created_at: new Date(),
+        updated_at: new Date()
+      });
+
+      const userId = userResult.insertedId;
+
+      // Create student profile
+      await db.collection('student_profiles').insertOne({
+        user_id: userId,
+        full_name: name,
+        skill_level: '',
+        preferred_language: '',
+        created_at: new Date(),
+        updated_at: new Date()
+      });
+
+      // Create student progress
+      await db.collection('student_progress').insertOne({
+        user_id: userId,
+        signs_learned: 0,
+        total_practice_time: 0,
+        accuracy_rate: 0.00,
+        total_sessions: 0,
+        weekly_progress: 0,
+        monthly_goal: 100,
+        streak_days: 0,
+        created_at: new Date(),
+        updated_at: new Date()
+      });
+
+      user = await db.collection('users').findOne({ _id: userId });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: user._id.toString(), email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Redirect to frontend with token
+    res.redirect(`${process.env.CLIENT_URL}?token=${token}&user=${encodeURIComponent(JSON.stringify({
+      ...user,
+      id: user._id.toString()
+    }))}`);
+
+  } catch (error) {
+    console.error('Google OAuth error:', error);
+    res.redirect(`${process.env.CLIENT_URL}?error=auth_failed`);
   }
 });
 

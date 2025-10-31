@@ -16,6 +16,7 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => void;
   signOut: () => Promise<void>;
   updateProfile: (updates: { full_name?: string; avatar_url?: string; bio?: string; learning_goals?: string; skill_level?: 'beginner' | 'intermediate' | 'advanced'; preferred_language?: 'ASL' | 'KSL' | 'BSL' }) => Promise<void>;
   isConfigured: boolean;
@@ -68,6 +69,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.error('SignUp error:', error);
       throw new Error(error.message || 'Failed to create account');
     }
+  };
+
+  const signInWithGoogle = () => {
+    window.location.href = `${import.meta.env.DEV ? 'http://localhost:3000' : 'https://ai-interpreter-platfform.onrender.com'}/api/auth/google`;
   };
 
   const signIn = async (email: string, password: string) => {
@@ -128,6 +133,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       loading,
       signUp,
       signIn,
+      signInWithGoogle,
       signOut,
       updateProfile,
       isConfigured,
