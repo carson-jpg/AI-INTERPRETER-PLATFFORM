@@ -1,7 +1,8 @@
 
 import { useState, useEffect } from 'react';
-import { Camera, BookOpen, MessageSquare, Settings, Calendar } from 'lucide-react';
+import { Camera, BookOpen, MessageSquare, Settings, Calendar, Menu, X, GraduationCap, Users, User } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import CameraFeed from '../components/CameraFeed';
 import InterpretationDisplay from '../components/InterpretationDisplay';
 import LearningModule from '../components/LearningModule';
@@ -21,7 +22,8 @@ const Index = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [lessonSchedules, setLessonSchedules] = useState<ILessonSchedule[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const { user, loading, isConfigured } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { user, loading, isConfigured, signOut } = useAuth();
 
   // Settings state
   const [settings, setSettings] = useState({
@@ -89,6 +91,15 @@ const Index = () => {
     }
   };
 
+  const handleSignOut = async () => {
+    if (!isConfigured) return;
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
@@ -113,7 +124,19 @@ const Index = () => {
               </div>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-4">
-              <Navigation activeMode={activeMode} onModeChange={handleModeChange} />
+              {/* Mobile menu button */}
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="md:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
+
+              {/* Desktop Navigation */}
+              <div className="hidden md:block">
+                <Navigation activeMode={activeMode} onModeChange={handleModeChange} />
+              </div>
+
               {!user && (
                 <button
                   onClick={() => setShowAuthModal(true)}
@@ -126,6 +149,117 @@ const Index = () => {
           </div>
         </div>
       </header>
+
+      {/* Mobile Sidebar */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-40">
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+
+          {/* Sidebar */}
+          <div className="fixed left-0 top-0 h-full w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out">
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="p-1 bg-gradient-to-r from-blue-600 to-green-600 rounded-lg">
+                    <MessageSquare className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="font-semibold text-gray-900">Menu</span>
+                </div>
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-1 text-gray-600 hover:text-gray-900"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="py-4">
+              <nav className="px-4 space-y-2">
+                {[
+                  { id: 'interpret' as const, label: 'Interpret', icon: Camera, path: '/' },
+                  { id: 'learn' as const, label: 'Learn', icon: BookOpen, path: '/' },
+                  { id: 'materials' as const, label: 'Materials', icon: GraduationCap, path: isConfigured ? '/materials' : '/' },
+                  { id: 'schedule' as const, label: 'Schedule', icon: Calendar, path: '/' },
+                  { id: 'community' as const, label: 'Community', icon: Users, path: isConfigured ? '/community' : '/' },
+                  { id: 'profile' as const, label: 'Profile', icon: User, path: isConfigured ? '/profile' : '/' },
+                  { id: 'settings' as const, label: 'Settings', icon: Settings, path: '/' },
+                ].map(({ id, label, icon: Icon, path }) => (
+                  <div key={id}>
+                    {path === '/' ? (
+                      <button
+                        onClick={() => {
+                          handleModeChange(id);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg font-medium transition-all duration-200 ${
+                          activeMode === id
+                            ? 'bg-gradient-to-r from-blue-600 to-green-600 text-white shadow-lg'
+                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        }`}
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span>{label}</span>
+                      </button>
+                    ) : (
+                      <Link
+                        to={path}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="w-full flex items-center space-x-3 px-3 py-3 rounded-lg font-medium transition-all duration-200 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                      >
+                        <Icon className="h-5 w-5" />
+                        <span>{label}</span>
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </nav>
+
+              {user && isConfigured && (
+                <div className="px-4 mt-6 pt-4 border-t border-gray-200">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-green-600 rounded-full flex items-center justify-center">
+                      <User className="h-4 w-4 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {user.user_metadata?.full_name || user.email}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      handleSignOut();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              )}
+
+              {!user && (
+                <div className="px-4 mt-6 pt-4 border-t border-gray-200">
+                  <button
+                    onClick={() => {
+                      setShowAuthModal(true);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full bg-gradient-to-r from-blue-600 to-green-600 text-white px-3 py-2 rounded-lg font-medium hover:from-blue-700 hover:to-green-700 transition-all"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
