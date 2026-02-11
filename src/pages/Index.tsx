@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { Camera, BookOpen, MessageSquare, Settings, Calendar, Menu, X, GraduationCap, Users, User } from 'lucide-react';
+import { Camera, BookOpen, MessageSquare, Settings, Calendar, Menu, X, GraduationCap, Users, User, Mic } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import CameraFeed from '../components/CameraFeed';
@@ -9,6 +9,7 @@ import LearningModule from '../components/LearningModule';
 import Navigation from '../components/Navigation';
 import AuthModal from '../components/auth/AuthModal';
 import LearningMaterials from '../pages/LearningMaterials';
+import SpeechToSignPanel from '../components/SpeechToSignPanel';
 import { useAuth } from '../hooks/useAuth';
 import { getSystemStats, getLessonSchedules } from '../services/mongoApi';
 import { textToSpeechService } from '../services/textToSpeech';
@@ -16,7 +17,7 @@ import { signLanguageDetectionService } from '../services/signLanguageDetection'
 import { ILessonSchedule } from '../lib/mongo';
 
 const Index = () => {
-  const [activeMode, setActiveMode] = useState<'interpret' | 'learn' | 'settings' | 'profile' | 'materials' | 'community' | 'schedule'>('interpret');
+  const [activeMode, setActiveMode] = useState<'interpret' | 'speak' | 'learn' | 'settings' | 'profile' | 'materials' | 'community' | 'schedule'>('interpret');
   const [interpretedText, setInterpretedText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -79,7 +80,7 @@ const Index = () => {
     signLanguageDetectionService.updateSettings(settings.sensitivity, settings.language);
   }, [settings.sensitivity, settings.language]);
 
-  const handleModeChange = (mode: 'interpret' | 'learn' | 'settings' | 'profile' | 'materials' | 'community' | 'schedule') => {
+  const handleModeChange = (mode: 'interpret' | 'speak' | 'learn' | 'settings' | 'profile' | 'materials' | 'community' | 'schedule') => {
     setActiveMode(mode);
   };
 
@@ -182,6 +183,7 @@ const Index = () => {
               <nav className="px-4 space-y-2">
                 {[
                   { id: 'interpret' as const, label: 'Interpret', icon: Camera, path: '/' },
+                  { id: 'speak' as const, label: 'Speak', icon: Mic, path: '/' },
                   { id: 'learn' as const, label: 'Learn', icon: BookOpen, path: '/' },
                   { id: 'materials' as const, label: 'Materials', icon: GraduationCap, path: isConfigured ? '/materials' : '/' },
                   { id: 'schedule' as const, label: 'Schedule', icon: Calendar, path: '/' },
@@ -344,6 +346,26 @@ const Index = () => {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeMode === 'speak' && (
+          <div className="space-y-8">
+            {/* Hero Section */}
+            <div className="text-center space-y-4">
+              <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
+                Speech to Sign Language
+              </h2>
+              <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                Speak into your microphone and watch the avatar translate your words into sign language.
+                Bridging communication gaps through AI-powered animation.
+              </p>
+            </div>
+
+            {/* Speech to Sign Panel */}
+            <div className="max-w-2xl mx-auto">
+              <SpeechToSignPanel language="en-US" />
             </div>
           </div>
         )}

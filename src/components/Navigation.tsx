@@ -1,5 +1,5 @@
 
-import { Camera, BookOpen, Settings, User, GraduationCap, Users, Bell, Calendar } from 'lucide-react';
+import { Camera, BookOpen, Settings, User, GraduationCap, Users, Bell, Calendar, Mic } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { useState, useEffect } from 'react';
@@ -7,8 +7,8 @@ import { getUserNotifications } from '../services/mongoApi';
 import { INotification } from '../lib/mongo';
 
 interface NavigationProps {
-  activeMode: 'interpret' | 'learn' | 'settings' | 'profile' | 'materials' | 'community' | 'schedule';
-  onModeChange: (mode: 'interpret' | 'learn' | 'settings' | 'profile' | 'materials' | 'community' | 'schedule') => void;
+  activeMode: 'interpret' | 'speak' | 'learn' | 'settings' | 'profile' | 'materials' | 'community' | 'schedule';
+  onModeChange: (mode: 'interpret' | 'speak' | 'learn' | 'settings' | 'profile' | 'materials' | 'community' | 'schedule') => void;
 }
 
 const Navigation = ({ activeMode, onModeChange }: NavigationProps) => {
@@ -19,6 +19,7 @@ const Navigation = ({ activeMode, onModeChange }: NavigationProps) => {
 
   const navItems = [
     { id: 'interpret' as const, label: 'Interpret', icon: Camera, path: '/' },
+    { id: 'speak' as const, label: 'Speak', icon: Mic, path: '/' },
     { id: 'learn' as const, label: 'Learn', icon: BookOpen, path: '/' },
     { id: 'materials' as const, label: 'Materials', icon: GraduationCap, path: isConfigured ? '/materials' : '/' },
     { id: 'schedule' as const, label: 'Schedule', icon: Calendar, path: '/' },
